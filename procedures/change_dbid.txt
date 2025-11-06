@@ -1,0 +1,43 @@
+
+
+$ORACLE_HOME/bin/sqlplus -s '/ as sysdba' << _SQL_STARTUP_MOUNT_
+startup
+shutdown immediate
+startup mount
+exit
+_SQL_STARTUP_MOUNT_
+ 
+
+ $ORACLE_HOME/bin/nid TARGET=sys/sys LOGFILE=${ORACLE_BASE}/${ORACLE_SID}_dbnewid.log
+ cat ${ORACLE_BASE}/${ORACLE_SID}_dbnewid.log
+
+
+$ORACLE_HOME/bin/sqlplus -s '/ as sysdba' << _SQL_RESETLOGS_
+
+shutdown immediate
+startup mount
+alter database open resetlogs;
+exit
+_SQL_RESETLOGS_
+ 
+
+sqlplus -s / as sysdba << _SQL_SHOW_CNX_
+COL USERNAME FOR A24
+COL MACHINE FOR A30
+COL LAST_LOGON FOR A16
+COL LAST_EXEC FOR A16
+SET LINESIZE 250
+     SELECT s.machine
+   , s.username
+    , to_char( max(logon_time),'dd/mm/yyyy hh24:mi') last_logon
+    , to_char( max(sql_exec_start),'dd/mm/yyyy hh24:mi') last_exec
+    , count(decode(s.STATUS, 'ACTIVE', 1)) as active_con
+    , count(decode(s.STATUS, 'INACTIVE', 1)) as inactive_con
+    , count(*) as total_con
+    FROM v\$session s
+    WHERE type <> 'BACKGROUND'
+   GROUP BY username, machine
+ ORDER BY total_con DESC, username, machine
+ ;
+EXIT
+_SQL_SHOW_CNX_
